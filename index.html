@@ -7,54 +7,50 @@
 <style>
 body{margin:0;font-family:Arial;background:#f1f3f6}
 
-#loginPage{display:flex;justify-content:center;align-items:center;height:100vh}
-#login{background:#fff;padding:20px;border-radius:10px;text-align:center;width:300px}
-
-.brand{color:#ff9900;font-weight:bold}
-
 header{background:#131921;color:#fff;padding:10px;display:flex;justify-content:space-between}
 
-.products{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;padding:10px}
+.products{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;padding:10px}
 
 .product{background:#fff;padding:10px;border-radius:10px;text-align:center}
 
-#cartBox{display:none;position:fixed;right:0;top:0;width:300px;height:100%;background:#fff;padding:10px}
+#cartBox{display:none;position:fixed;right:0;top:0;width:300px;height:100%;background:#fff;padding:10px;overflow:auto}
 
 button{padding:8px;background:#ff9900;border:none;margin:5px;border-radius:5px}
+
 input,textarea{padding:8px;margin:5px;width:90%}
+
+#loginPopup{
+display:none;
+position:fixed;
+top:0;left:0;
+width:100%;height:100%;
+background:rgba(0,0,0,0.6);
+justify-content:center;
+align-items:center;
+}
+
+#loginBox{
+background:#fff;
+padding:20px;
+border-radius:10px;
+text-align:center;
+}
 </style>
 </head>
 
 <body>
-
-<!-- LOGIN -->
-<div id="loginPage">
-<div id="login">
-<h2 class="brand">🐯 BENGAL TIGER</h2>
-
-<input id="email" placeholder="Enter Email"><br>
-<input id="password" type="password" placeholder="Enter Password"><br>
-
-<button onclick="login()">Login</button>
-<button onclick="signup()">Sign Up</button>
-</div>
-</div>
-
-<!-- APP -->
-<div id="app" style="display:none">
 
 <header>
 <h3>🐯 BENGAL TIGER</h3>
 <button onclick="toggleCart()">🛒</button>
 </header>
 
-<div style="background:#ff9900;padding:8px;text-align:center">
+<div style="background:#ff9900;text-align:center;padding:8px">
 🚚 All India Shipping 🇮🇳
 </div>
 
+<!-- PRODUCTS -->
 <div class="products" id="products"></div>
-
-</div>
 
 <!-- CART -->
 <div id="cartBox">
@@ -65,40 +61,38 @@ Total ₹<span id="total">0</span><br>
 <input id="phone" placeholder="Phone"><br>
 <textarea id="address" placeholder="Address"></textarea>
 
-<div style="color:red;font-size:14px">
+<div style="color:red">
 ❌ No Return<br>
 ❌ No Cancellation<br>
 ❌ No Replacement
 </div>
 
-<button onclick="placeOrder()">Place Order</button>
+<button onclick="checkLogin()">Place Order</button>
+</div>
+
+<!-- LOGIN POPUP -->
+<div id="loginPopup">
+<div id="loginBox">
+<h3>Login Required</h3>
+<input id="email" placeholder="Email"><br>
+<input id="password" type="password" placeholder="Password"><br>
+
+<button onclick="login()">Login</button>
+</div>
 </div>
 
 <script>
 
-// SIMPLE LOGIN SYSTEM (NO FIREBASE)
-function login(){
-if(email.value && password.value){
-loginPage.style.display="none";
-app.style.display="block";
-}else{
-alert("Enter details");
-}
-}
-
-function signup(){
-alert("Signup success (demo)");
-}
-
-// PRODUCTS (STATIC)
+// PRODUCTS
 let products=[
-{name:"Product 1",price:500},
-{name:"Product 2",price:800},
-{name:"Product 3",price:1200}
+{name:"Watch",price:500},
+{name:"Bag",price:800},
+{name:"Headset",price:1200}
 ];
 
 products.forEach(p=>{
-document.getElementById("products").innerHTML+=`
+productsDiv=document.getElementById("products");
+productsDiv.innerHTML+=`
 <div class="product">
 <h4>${p.name}</h4>
 ₹${p.price}<br>
@@ -109,29 +103,59 @@ document.getElementById("products").innerHTML+=`
 // CART
 let cart=[],total=0;
 
-function addCart(n,p){
-cart.push({name:n,price:p});
-total+=p;
-cartItems.innerHTML+=`<li>${n} ₹${p}</li>`;
+function addCart(name,price){
+cart.push({name,price});
+total+=price;
+
+document.getElementById("cartItems").innerHTML+=`<li>${name} ₹${price}</li>`;
 document.getElementById("total").innerText=total;
 }
 
 function toggleCart(){
-cartBox.style.display=cartBox.style.display==="block"?"none":"block";
+let box=document.getElementById("cartBox");
+box.style.display=(box.style.display==="block")?"none":"block";
+}
+
+// LOGIN CHECK
+let loggedIn=false;
+
+function checkLogin(){
+if(!loggedIn){
+document.getElementById("loginPopup").style.display="flex";
+}else{
+placeOrder();
+}
+}
+
+// LOGIN
+function login(){
+let email=document.getElementById("email").value;
+let password=document.getElementById("password").value;
+
+if(email && password){
+loggedIn=true;
+document.getElementById("loginPopup").style.display="none";
+alert("Login success");
+placeOrder();
+}else{
+alert("Enter details");
+}
 }
 
 // ORDER
 function placeOrder(){
 
-if(!phone.value||!address.value){
+let phone=document.getElementById("phone").value;
+let address=document.getElementById("address").value;
+
+if(!phone||!address){
 alert("Fill details");
 return;
 }
 
 let msg="🐯 BENGAL TIGER ORDER%0A";
-msg+="Email:"+email.value+"%0A";
-msg+="Phone:"+phone.value+"%0A";
-msg+="Address:"+address.value+"%0A";
+msg+="Phone:"+phone+"%0A";
+msg+="Address:"+address+"%0A";
 
 cart.forEach(i=>{
 msg+=i.name+" ₹"+i.price+"%0A";
@@ -139,10 +163,11 @@ msg+=i.name+" ₹"+i.price+"%0A";
 
 msg+="Total ₹"+total;
 
-// WHATSAPP
+// WhatsApp
 window.open("https://wa.me/917810049030?text="+msg);
 }
+
 </script>
 
 </body>
-  </html>
+</html>
