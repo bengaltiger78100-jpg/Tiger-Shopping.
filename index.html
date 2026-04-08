@@ -4,81 +4,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BENGAL TIGER</title>
 
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
 <style>
 body{margin:0;font-family:Arial;background:#f1f3f6}
-
-header{
-background:#131921;
-color:#fff;
-padding:10px;
-display:flex;
-justify-content:space-between;
-}
-
-.products{
-display:grid;
-grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
-gap:10px;
-padding:10px;
-}
-
-.product{
-background:#fff;
-padding:10px;
-border-radius:10px;
-text-align:center;
-}
-
-#cartBox{
-display:none;
-position:fixed;
-right:0;
-top:0;
-width:300px;
-height:100%;
-background:#fff;
-padding:10px;
-overflow:auto;
-}
-
-button{
-padding:8px;
-background:#ff9900;
-border:none;
-margin:5px;
-border-radius:5px;
-}
-
-input,textarea{
-padding:8px;
-margin:5px;
-width:90%;
-}
-
-#adminPanel{
-padding:10px;
-background:#fff;
-margin:10px;
-border-radius:10px;
-}
-
-#loginPopup{
-display:none;
-position:fixed;
-top:0;
-left:0;
-width:100%;
-height:100%;
-background:rgba(0,0,0,0.6);
-justify-content:center;
-align-items:center;
-}
-
-#loginBox{
-background:#fff;
-padding:20px;
-border-radius:10px;
-}
+header{background:#131921;color:#fff;padding:10px;display:flex;justify-content:space-between}
+.products{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;padding:10px}
+.product{background:#fff;padding:10px;border-radius:10px;text-align:center}
+#cartBox{display:none;position:fixed;right:0;top:0;width:300px;height:100%;background:#fff;padding:10px;overflow:auto}
+button{padding:8px;background:#ff9900;border:none;margin:5px;border-radius:5px}
+input,textarea{padding:8px;margin:5px;width:90%}
 </style>
 </head>
 
@@ -93,11 +30,12 @@ border-radius:10px;
 🚚 All India Shipping 🇮🇳
 </div>
 
-<!-- ADMIN ADD PRODUCT -->
-<div id="adminPanel">
+<!-- ADMIN -->
+<div style="padding:10px;background:#fff;margin:10px;border-radius:10px">
 <h3>Add Product</h3>
-<input id="pname" placeholder="Product Name"><br>
-<input id="pprice" placeholder="Price"><br>
+<input id="name" placeholder="Product Name"><br>
+<input id="price" placeholder="Price"><br>
+<input id="image" type="file"><br>
 <button onclick="addProduct()">Add Product</button>
 </div>
 
@@ -113,54 +51,61 @@ Total ₹<span id="total">0</span><br>
 <input id="phone" placeholder="Phone"><br>
 <textarea id="address" placeholder="Address"></textarea>
 
-<div style="color:red">
-❌ No Return<br>
-❌ No Cancellation<br>
-❌ No Replacement
-</div>
-
-<button onclick="checkLogin()">Place Order</button>
-</div>
-
-<!-- LOGIN -->
-<div id="loginPopup">
-<div id="loginBox">
-<h3>Login Required</h3>
-<input id="email" placeholder="Email"><br>
-<input id="password" type="password"><br>
-<button onclick="login()">Login</button>
-</div>
+<button onclick="placeOrder()">Order</button>
 </div>
 
 <script>
 
-// CART
-let cart=[], total=0;
+// 🔥 PUT YOUR FIREBASE CONFIG HERE
+const firebaseConfig = {
+  apiKey: "PASTE",
+  authDomain: "PASTE",
+  projectId: "PASTE",
+  storageBucket: "PASTE"
+};
 
-// ADD PRODUCT (ADMIN)
+firebase.initializeApp(firebaseConfig);
+
+const db=firebase.firestore();
+const storage=firebase.storage();
+
+// ADD PRODUCT
 function addProduct(){
-let name=document.getElementById("pname").value;
-let price=document.getElementById("pprice").value;
+let file=image.files[0];
+let ref=storage.ref("products/"+file.name);
 
-if(!name || !price){
-alert("Enter details");
-return;
+ref.put(file).then(()=>{
+ref.getDownloadURL().then(url=>{
+db.collection("products").add({
+name:name.value,
+price:price.value,
+image:url
+});
+});
+});
 }
 
-document.getElementById("products").innerHTML+=`
+// LOAD PRODUCTS
+db.collection("products").onSnapshot(s=>{
+products.innerHTML="";
+s.forEach(doc=>{
+let p=doc.data();
+products.innerHTML+=`
 <div class="product">
-<h4>${name}</h4>
-₹${price}<br>
-<button onclick="addCart('${name}',${price})">Add</button>
+<img src="${p.image}" width="100%">
+<h4>${p.name}</h4>
+₹${p.price}<br>
+<button onclick="addCart('${p.name}',${p.price})">Add</button>
 </div>`;
-
-}
+});
+});
 
 // CART
+let cart=[],total=0;
+
 function addCart(n,p){
 cart.push({name:n,price:p});
 total+=Number(p);
-
 cartItems.innerHTML+=`<li>${n} ₹${p}</li>`;
 document.getElementById("total").innerText=total;
 }
@@ -169,43 +114,12 @@ function toggleCart(){
 cartBox.style.display=cartBox.style.display==="block"?"none":"block";
 }
 
-// LOGIN
-let loggedIn=false;
-
-function checkLogin(){
-if(!loggedIn){
-loginPopup.style.display="flex";
-}else{
-placeOrder();
-}
-}
-
-function login(){
-if(email.value && password.value){
-loggedIn=true;
-loginPopup.style.display="none";
-placeOrder();
-}else{
-alert("Enter login");
-}
-}
-
 // ORDER
 function placeOrder(){
+if(!phone.value||!address.value)return alert("Fill details");
 
-if(!phone.value||!address.value){
-alert("Fill details");
-return;
-}
-
-let msg="🐯 BENGAL TIGER ORDER%0A";
-msg+="Phone:"+phone.value+"%0A";
-msg+="Address:"+address.value+"%0A";
-
-cart.forEach(i=>{
-msg+=i.name+" ₹"+i.price+"%0A";
-});
-
+let msg="Order%0A";
+cart.forEach(i=>msg+=i.name+" ₹"+i.price+"%0A");
 msg+="Total ₹"+total;
 
 window.open("https://wa.me/917810049030?text="+msg);
@@ -214,4 +128,4 @@ window.open("https://wa.me/917810049030?text="+msg);
 </script>
 
 </body>
-  </html>
+</html>
