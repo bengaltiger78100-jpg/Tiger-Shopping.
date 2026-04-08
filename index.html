@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BENGAL TIGER</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js"></script>
+
+<style>
+body{margin:0;font-family:Arial;background:#f1f3f6}
+
+#loginPage{display:flex;justify-content:center;align-items:center;height:100vh}
+#login{background:#fff;padding:25px;border-radius:12px;box-shadow:0 5px 20px rgba(0,0,0,0.2);text-align:center;width:300px}
+.logo{width:120px}
+
+.brand{
+font-weight:bold;
+color:#ff9900;
+text-shadow:0 0 10px #ff9900,0 0 20px #ff6600;
+}
+
+header{background:#131921;color:#fff;padding:12px;display:flex;justify-content:space-between}
+
+#shipping{background:#ff9900;color:#000;text-align:center;padding:8px;font-weight:bold}
+
+#search{text-align:center;padding:10px}
+#search input{width:80%;padding:8px}
+
+.products{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;padding:10px}
+.product{background:#fff;padding:10px;border-radius:10px;text-align:center}
+
+#cartBox{display:none;position:fixed;right:0;top:0;width:300px;height:100%;background:#fff;padding:10px;overflow:auto}
+
+button{padding:8px;margin:5px;background:#ff9900;border:none;border-radius:5px}
+input,textarea{padding:8px;margin:5px;width:90%}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="loginPage">
+<div id="login">
+<img src="logo.png" class="logo">
+<h2 class="brand">🐯 BENGAL TIGER</h2>
+
+<input id="email" placeholder="Email"><br>
+<input id="password" type="password" placeholder="Password"><br>
+
+<button onclick="login()">Login</button>
+<button onclick="signup()">Sign Up</button>
+<button onclick="resetPassword()">Forgot</button>
+<button onclick="googleLogin()">Google Login</button>
+</div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+
+<header>
+<h3 class="brand">🐯 BENGAL TIGER</h3>
+<div>
+<button onclick="logout()">Logout</button>
+<button onclick="toggleCart()">🛒</button>
+</div>
+</header>
+
+<div id="shipping">🚚 All India Shipping Available 🇮🇳</div>
+
+<div id="search">
+<input placeholder="Search product..." oninput="searchProduct(this.value)">
+</div>
+
+<!-- ADMIN -->
+<div id="adminPanel" style="display:none;padding:10px">
+<h3>Add Product</h3>
+<input id="name" placeholder="Product">
+<input id="price" placeholder="Price">
+<input id="file" type="file">
+<button onclick="addProduct()">Add</button>
+</div>
+
+<div class="products" id="products"></div>
+<div id="orders"></div>
+
+</div>
+
+<!-- CART -->
+<div id="cartBox">
+<h3>Cart</h3>
+<ul id="cartItems"></ul>
+Total ₹<span id="total">0</span><br>
+
+<input id="phone" placeholder="Phone"><br>
+<textarea id="address" placeholder="Address"></textarea><br>
+
+<div style="color:red;font-weight:bold;font-size:14px;text-align:left">
+⚠️ IMPORTANT:<br>
+❌ No Cancellation<br>
+❌ No Return<br>
+❌ No Replacement<br>
+</div>
+
+<label>
+<input type="checkbox" id="agree">
+I agree to Terms & Conditions
+</label><br>
+
+<button onclick="placeOrder()">Place Order</button>
+</div>
+
+<script>
+const firebaseConfig={
+apiKey:"YOUR_KEY",
+authDomain:"YOUR_DOMAIN",
+projectId:"YOUR_ID",
+storageBucket:"YOUR_BUCKET"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db=firebase.firestore();
+const auth=firebase.auth();
+const storage=firebase.storage();
+
+let cart=[],total=0;
+let allProducts=[];
+
+const ADMINS=[
+"bengaltiger78100@gmail.com",
+"monthiramoorthi@gmail.com"
+];
+
+const ADMIN_PASS="shiva@201328";
+
+function login(){
+auth.signInWithEmailAndPassword(email.value,password.value)
+.catch(e=>alert(e.message));
+}
+
+function signup(){
+auth.createUserWithEmailAndPassword(email.value,password.value)
+.then(()=>alert("Account created"))
+.catch(e=>alert(e.message));
+}
+
+function resetPassword(){
+if(!email.value)return alert("Enter email");
+auth.sendPasswordResetEmail(email.value);
+}
+
+function googleLogin(){
+let provider=new firebase.auth.GoogleAuthProvider();
+auth.signInWithPopup(provider);
+}
+
+function logout(){
+auth.signOut();
+location.reload();
+}
+
+auth.onAuthStateChanged(u=>{
+if(u){
+loginPage.style.display="none";
+app.style.display="block";
+
+if(ADMINS.includes(u.email)){
+let pass=prompt("Enter admin password");
+if(pass===ADMIN_PASS){
+adminPanel.style.display="block";
+}
+}
+}
+});
+
+function addProduct(){
+let f=file.files[0];
+let ref=storage.ref("products/"+f.name);
+ref.put(f).then(()=>ref.getDownloadURL().then(url=>{
+db.collection("products").add({
+name:name.value,
+price:price.value,
+image:url
+});
+}));
+}
+
+db.collection("products").onSnapshot(s=>{
+allProducts=[];
+s.forEach(d=>allProducts.push(d.data()));
+showProducts(allProducts);
+});
+
+function showProducts(list){
+products.innerHTML="";
+list.forEach(p=>{
+products.innerHTML+=`<div class='product'>
+<img src='${p.image}' width='100%'>
+<h4>${p.name}</h4>
+₹${p.price}<br>
+<button onclick="addCart('${p.name}',${p.price})">Add</button>
+</div>`;
+});
+}
+
+function searchProduct(text){
+let filtered=allProducts.filter(p=>p.name.toLowerCase().includes(text.toLowerCase()));
+showProducts(filtered);
+}
+
+function addCart(n,p){
+cart.push({name:n,price:p});
+total+=+p;
+cartItems.innerHTML+=`<li>${n} ₹${p}</li>`;
+document.getElementById("total").innerText=total;
+}
+
+function toggleCart(){
+cartBox.style.display=cartBox.style.display==="block"?"none":"block";
+}
+
+// 🚀 FINAL ORDER FUNCTION
+function placeOrder(){
+
+if(!agree.checked){
+alert("Accept Terms first");
+return;
+}
+
+if(!phone.value||!address.value){
+alert("Fill details");
+return;
+}
+
+let user = firebase.auth().currentUser;
+let email = user ? user.email : "No Email";
+
+// 🔥 WHATSAPP FORMAT
+let msg="🐯 *BENGAL TIGER ORDER* %0A%0A";
+
+msg+="👤 *Customer Details* %0A";
+msg+="📧 Email: "+email+"%0A";
+msg+="📱 Phone: "+phone.value+"%0A";
+msg+="📍 Address: "+address.value+"%0A%0A";
+
+msg+="🛒 *Products:* %0A";
+cart.forEach(i=>{
+msg+="- "+i.name+" ₹"+i.price+"%0A";
+});
+
+msg+="%0A💰 *Total: ₹"+total+"*";
+
+// SEND WHATSAPP
+window.open("https://wa.me/917810049030?text="+msg);
+
+// SAVE DATABASE
+db.collection("orders").add({
+items:cart,
+total:total,
+phone:phone.value,
+address:address.value,
+email:email,
+status:"Confirmed"
+});
+
+// RESET
+cart=[];
+total=0;
+cartItems.innerHTML="";
+document.getElementById("total").innerText=0;
+}
+</script>
+
+</body>
+</html>
