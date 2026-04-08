@@ -4,10 +4,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BENGAL TIGER</title>
 
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 
 <style>
 body{margin:0;font-family:Arial;background:#f1f3f6}
@@ -26,9 +26,6 @@ header{background:#131921;color:#fff;padding:12px;display:flex;justify-content:s
 
 #shipping{background:#ff9900;color:#000;text-align:center;padding:8px;font-weight:bold}
 
-#search{text-align:center;padding:10px}
-#search input{width:80%;padding:8px}
-
 .products{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;padding:10px}
 .product{background:#fff;padding:10px;border-radius:10px;text-align:center}
 
@@ -44,7 +41,6 @@ input,textarea{padding:8px;margin:5px;width:90%}
 <!-- LOGIN -->
 <div id="loginPage">
 <div id="login">
-<img src="logo.png" class="logo">
 <h2 class="brand">🐯 BENGAL TIGER</h2>
 
 <input id="email" placeholder="Email"><br>
@@ -52,7 +48,7 @@ input,textarea{padding:8px;margin:5px;width:90%}
 
 <button onclick="login()">Login</button>
 <button onclick="signup()">Sign Up</button>
-<button onclick="resetPassword()">Forgot</button>
+<button onclick="resetPassword()">Forgot Password</button>
 <button onclick="googleLogin()">Google Login</button>
 </div>
 </div>
@@ -70,21 +66,16 @@ input,textarea{padding:8px;margin:5px;width:90%}
 
 <div id="shipping">🚚 All India Shipping Available 🇮🇳</div>
 
-<div id="search">
-<input placeholder="Search product..." oninput="searchProduct(this.value)">
-</div>
-
 <!-- ADMIN -->
 <div id="adminPanel" style="display:none;padding:10px">
 <h3>Add Product</h3>
-<input id="name" placeholder="Product">
+<input id="name" placeholder="Product Name">
 <input id="price" placeholder="Price">
 <input id="file" type="file">
-<button onclick="addProduct()">Add</button>
+<button onclick="addProduct()">Add Product</button>
 </div>
 
 <div class="products" id="products"></div>
-<div id="orders"></div>
 
 </div>
 
@@ -97,36 +88,38 @@ Total ₹<span id="total">0</span><br>
 <input id="phone" placeholder="Phone"><br>
 <textarea id="address" placeholder="Address"></textarea><br>
 
-<div style="color:red;font-weight:bold;font-size:14px;text-align:left">
-⚠️ IMPORTANT:<br>
+<div style="color:red;font-weight:bold;font-size:14px">
 ❌ No Cancellation<br>
 ❌ No Return<br>
-❌ No Replacement<br>
+❌ No Replacement
 </div>
 
 <label>
-<input type="checkbox" id="agree">
-I agree to Terms & Conditions
+<input type="checkbox" id="agree"> I agree to Terms
 </label><br>
 
 <button onclick="placeOrder()">Place Order</button>
 </div>
 
 <script>
-const firebaseConfig={
-apiKey:"YOUR_KEY",
-authDomain:"YOUR_DOMAIN",
-projectId:"YOUR_ID",
-storageBucket:"YOUR_BUCKET"
+
+// 🔥 PASTE YOUR FIREBASE CONFIG HERE
+const firebaseConfig = {
+  apiKey: "PASTE_HERE",
+  authDomain: "PASTE_HERE",
+  projectId: "PASTE_HERE",
+  storageBucket: "PASTE_HERE",
+  messagingSenderId: "PASTE_HERE",
+  appId: "PASTE_HERE"
 };
 
 firebase.initializeApp(firebaseConfig);
-const db=firebase.firestore();
-const auth=firebase.auth();
-const storage=firebase.storage();
 
-let cart=[],total=0;
-let allProducts=[];
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
+
+let cart=[], total=0;
 
 const ADMINS=[
 "bengaltiger78100@gmail.com",
@@ -135,38 +128,43 @@ const ADMINS=[
 
 const ADMIN_PASS="shiva@201328";
 
+// LOGIN
 function login(){
 auth.signInWithEmailAndPassword(email.value,password.value)
 .catch(e=>alert(e.message));
 }
 
+// SIGNUP
 function signup(){
 auth.createUserWithEmailAndPassword(email.value,password.value)
-.then(()=>alert("Account created"))
 .catch(e=>alert(e.message));
 }
 
+// RESET
 function resetPassword(){
 if(!email.value)return alert("Enter email");
 auth.sendPasswordResetEmail(email.value);
 }
 
+// GOOGLE LOGIN
 function googleLogin(){
 let provider=new firebase.auth.GoogleAuthProvider();
 auth.signInWithPopup(provider);
 }
 
+// LOGOUT
 function logout(){
 auth.signOut();
 location.reload();
 }
 
-auth.onAuthStateChanged(u=>{
-if(u){
+// AUTH STATE
+auth.onAuthStateChanged(user=>{
+if(user){
 loginPage.style.display="none";
 app.style.display="block";
 
-if(ADMINS.includes(u.email)){
+if(ADMINS.includes(user.email)){
 let pass=prompt("Enter admin password");
 if(pass===ADMIN_PASS){
 adminPanel.style.display="block";
@@ -175,41 +173,38 @@ adminPanel.style.display="block";
 }
 });
 
+// ADD PRODUCT
 function addProduct(){
-let f=file.files[0];
-let ref=storage.ref("products/"+f.name);
-ref.put(f).then(()=>ref.getDownloadURL().then(url=>{
+let fileData=file.files[0];
+let ref=storage.ref("products/"+fileData.name);
+
+ref.put(fileData).then(()=>{
+ref.getDownloadURL().then(url=>{
 db.collection("products").add({
 name:name.value,
 price:price.value,
 image:url
 });
-}));
+});
+});
 }
 
-db.collection("products").onSnapshot(s=>{
-allProducts=[];
-s.forEach(d=>allProducts.push(d.data()));
-showProducts(allProducts);
-});
-
-function showProducts(list){
+// LOAD PRODUCTS
+db.collection("products").onSnapshot(snapshot=>{
 products.innerHTML="";
-list.forEach(p=>{
-products.innerHTML+=`<div class='product'>
-<img src='${p.image}' width='100%'>
+snapshot.forEach(doc=>{
+let p=doc.data();
+products.innerHTML+=`
+<div class="product">
+<img src="${p.image}" width="100%">
 <h4>${p.name}</h4>
 ₹${p.price}<br>
 <button onclick="addCart('${p.name}',${p.price})">Add</button>
 </div>`;
 });
-}
+});
 
-function searchProduct(text){
-let filtered=allProducts.filter(p=>p.name.toLowerCase().includes(text.toLowerCase()));
-showProducts(filtered);
-}
-
+// CART
 function addCart(n,p){
 cart.push({name:n,price:p});
 total+=+p;
@@ -221,57 +216,45 @@ function toggleCart(){
 cartBox.style.display=cartBox.style.display==="block"?"none":"block";
 }
 
-// 🚀 FINAL ORDER FUNCTION
+// ORDER
 function placeOrder(){
 
-if(!agree.checked){
-alert("Accept Terms first");
-return;
-}
+if(!agree.checked)return alert("Accept terms");
+if(!phone.value||!address.value)return alert("Fill details");
 
-if(!phone.value||!address.value){
-alert("Fill details");
-return;
-}
-
-let user = firebase.auth().currentUser;
+let user = auth.currentUser;
 let email = user ? user.email : "No Email";
 
-// 🔥 WHATSAPP FORMAT
-let msg="🐯 *BENGAL TIGER ORDER* %0A%0A";
+let msg="🐯 BENGAL TIGER ORDER%0A%0A";
+msg+="Email:"+email+"%0A";
+msg+="Phone:"+phone.value+"%0A";
+msg+="Address:"+address.value+"%0A%0A";
 
-msg+="👤 *Customer Details* %0A";
-msg+="📧 Email: "+email+"%0A";
-msg+="📱 Phone: "+phone.value+"%0A";
-msg+="📍 Address: "+address.value+"%0A%0A";
-
-msg+="🛒 *Products:* %0A";
 cart.forEach(i=>{
-msg+="- "+i.name+" ₹"+i.price+"%0A";
+msg+=i.name+" ₹"+i.price+"%0A";
 });
 
-msg+="%0A💰 *Total: ₹"+total+"*";
+msg+="Total ₹"+total;
 
-// SEND WHATSAPP
+// WHATSAPP
 window.open("https://wa.me/917810049030?text="+msg);
 
-// SAVE DATABASE
+// SAVE
 db.collection("orders").add({
 items:cart,
 total:total,
-phone:phone.value,
-address:address.value,
 email:email,
-status:"Confirmed"
+phone:phone.value,
+address:address.value
 });
 
-// RESET
 cart=[];
 total=0;
 cartItems.innerHTML="";
 document.getElementById("total").innerText=0;
 }
+
 </script>
 
 </body>
-</html>
+  </html>
